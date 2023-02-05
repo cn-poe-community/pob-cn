@@ -1,0 +1,15 @@
+报错请安装 Redist/vcredist_x86.exe
+
+字体相关修改:
+	1.如何指定自己的字体
+		1)将你的字体文件(ttf,ttc,otf)复制到 SimpleGraphic/Fonts 目录下
+		2)将你的字体文件改名为"ZdDroidF" 或在 Launch.cfg 文件最后一行增加参数：set font_name "你的字体文件名"，重启 POB 即可
+
+	2.如何使用系统的字体
+		1)在 Launch.cfg 文件最后一行增加参数：set font_name "微软雅黑"，重启 POB 即可
+
+	3.字体显示太大/太小，怎么调整大小
+		1)Launch.cfg 文件最后一行增加参数：set font_resolution "72"，重启 POB 即可 (建议范围:55 - 150)
+
+	4.如何调整字体间距
+		1)Launch.cfg 文件最后一行增加参数：set font_spacing_x "间距"，重启 POB 即可 (建议范围:2 - 4)

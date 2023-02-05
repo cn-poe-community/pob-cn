@@ -1,3 +1,9 @@
+# PathOfBuildingCN
+
+感谢草樣年華²⁰²³ 大佬，没有他，POB就支持不了中文
+
+以下为原POB的README
+
 # Path of Building Community Fork
 ## Formerly known as LocalIdentity Fork
 

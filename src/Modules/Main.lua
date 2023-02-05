@@ -1322,11 +1322,7 @@ function main:OpenNewFolderPopup(path, onClose)
 end
 
 function main:SetWindowTitleSubtext(subtext)
-	if not subtext or not self.showTitlebarName then
-		SetWindowTitle(APP_NAME)
-	else
-		SetWindowTitle(subtext.." - "..APP_NAME)
-	end
+	SetWindowTitle(APP_NAME)
 end
 
 do
