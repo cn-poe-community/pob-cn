@@ -11,21 +11,21 @@ local protected_replace = "*"
 local function lastLine(str)
 	local lastLineIndex = 1
 	while true do
-		local nextLine = str:find("\n", lastLineIndex, true)
+		local nextLine = utf8.find(str, "\n", lastLineIndex, true)
 		if nextLine then
 			lastLineIndex = nextLine + 1
 		else
 			break
 		end
 	end
-	return str:sub(lastLineIndex, -1)
+	return utf8.sub(str, lastLineIndex, -1)
 end
 
 local function newlineCount(str)
 	local count = 0
 	local lastLineIndex = 1
 	while true do
-		local nextLine = str:find("\n", lastLineIndex, true)
+		local nextLine = utf8.find(str, "\n", lastLineIndex, true)
 		if nextLine then
 			count = count + 1
 			lastLineIndex = nextLine + 1
@@ -93,8 +93,8 @@ local EditClass = newClass("EditControl", "ControlHost", "Control", "UndoHandler
 end)
 
 function EditClass:SetText(text, notify)
-	self.buf = tostring(text)
-	self.caret = #self.buf + 1
+	self.buf = urlDecode(tostring(text))
+	self.caret = utf8.len(self.buf) + 1
 	self.sel = nil
 	if notify and self.changeFunc then
 		self.changeFunc(self.buf)
@@ -124,7 +124,7 @@ function EditClass:IsMouseOver()
 end
 
 function EditClass:SelectAll()
-	self.caret = #self.buf + 1
+	self.caret = utf8.len(self.buf) + 1
 	self.sel = 1
 	self:ScrollCaretIntoView()
 end
@@ -132,23 +132,23 @@ end
 function EditClass:GetSelText()
 	local left = m_min(self.caret, self.sel)
 	local right = m_max(self.caret, self.sel)
-	local newBuf = self.buf:sub(left, right - 1)
+	local newBuf = utf8.sub(self.buf, left, right - 1)
 	return newBuf
 end
 
 function EditClass:ReplaceSel(text)
-	text = text:gsub("\r","")
-	if text:match(self.filterPattern) then
+	text = utf8.gsub(text, "\r", "")
+	if utf8.match(text, self.filterPattern) then
 		return
 	end
 	local left = m_min(self.caret, self.sel)
 	local right = m_max(self.caret, self.sel)
-	local newBuf = self.buf:sub(1, left - 1) .. text .. self.buf:sub(right)
+	local newBuf = utf8.sub(self.buf, 1, left - 1) .. text .. utf8.sub(self.buf, right)
 	if self.limit and #newBuf > self.limit then
 		return
 	end
 	self.buf = newBuf
-	self.caret = left + #text
+	self.caret = left + utf8.len(text)
 	self.sel = nil
 	self:ScrollCaretIntoView()
 	self.blinkStart = GetTime()
@@ -159,18 +159,16 @@ function EditClass:ReplaceSel(text)
 end
 
 function EditClass:Insert(text)
-	text = text:gsub("\r","")
-	-- Remove any illegal chars from the "text" variable, to stop resulting in no text when an illegal character is found.
-	text = text:gsub(self.filterPattern,"")
-	if text == "" then
+	text = utf8.gsub(text, "\r", "")
+	if self.filterPattern ~= "[]" and utf8.match(text, self.filterPattern) then
 		return
 	end
-	local newBuf = self.buf:sub(1, self.caret - 1) .. text .. self.buf:sub(self.caret)
-	if self.limit and #newBuf > self.limit then
+	local newBuf = utf8.sub(self.buf, 1, self.caret - 1) .. text .. utf8.sub(self.buf, self.caret)
+	if self.limit and utf8.len(newBuf) > self.limit then
 		return
 	end
 	self.buf = newBuf
-	self.caret = self.caret + #text
+	self.caret = self.caret + utf8.len(text)
 	self.sel = nil
 	self:ScrollCaretIntoView()
 	self.blinkStart = GetTime()
@@ -217,7 +215,7 @@ end
 function EditClass:ScrollCaretIntoView()
 	local width, height = self:GetSize()
 	local textHeight = self.lineHeight or (height - 4)
-	local pre = self.buf:sub(1, self.caret - 1)
+	local pre = utf8.sub(self.buf, 1, self.caret - 1)
 	local caretX = DrawStringWidth(textHeight, self.font, lastLine(pre))
 	self:UpdateScrollBars()
 	self.controls.scrollBarH:ScrollIntoView(caretX - textHeight, textHeight * 2)
@@ -228,7 +226,7 @@ function EditClass:ScrollCaretIntoView()
 end
 
 function EditClass:MoveCaretVertically(offset)
-	local pre = self.buf:sub(1, self.caret - 1)
+	local pre = utf8.sub(self.buf, 1, self.caret - 1)
 	local caretX = DrawStringWidth(self.lineHeight, self.font, lastLine(pre))
 	local caretY = newlineCount(pre) * self.lineHeight
 	self.caret = DrawStringCursorIndex(self.lineHeight, self.font, self.buf, caretX + 1, caretY + self.lineHeight/2 + offset)
@@ -324,14 +322,14 @@ function EditClass:Draw(viewPort, noTooltip)
 		local right = m_max(self.caret, self.sel or self.caret)
 		local caretX
 		SetDrawColor(self.textCol)
-		for s, line, e in (self.buf.."\n"):gmatch("()([^\n]*)\n()") do
+		for s, line, e in utf8.gmatch(self.buf.."\n", "()([^\n]*)\n()") do
 			textX = -self.controls.scrollBarH.offset
 			if left >= e or right <= s then
 				DrawString(textX, textY, "LEFT", textHeight, self.font, line)
 			end
 			if left < e then
 				if left > s then
-					local pre = line:sub(1, left - s)
+					local pre = utf8.sub(line, 1, left - s)
 					DrawString(textX, textY, "LEFT", textHeight, self.font, pre)
 					textX = textX + DrawStringWidth(textHeight, self.font, pre)
 				end
@@ -340,7 +338,7 @@ function EditClass:Draw(viewPort, noTooltip)
 				end
 			end
 			if left ~= right and left < e and right > s then
-				local sel = self.selCol .. StripEscapes(line:sub(m_max(1, left - s + 1), m_min(#line, right - s)))
+				local sel = self.selCol .. StripEscapes(utf8.sub(line, m_max(1, left - s + 1), m_min(utf8.len(line), right - s)))
 				if right >= e then
 					sel = sel .. "  "
 				end
@@ -356,7 +354,7 @@ function EditClass:Draw(viewPort, noTooltip)
 			end
 			if right > s then
 				if right < e then
-					local post = line:sub(right - s + 1)
+					local post = utf8.sub(line, right - s + 1)
 					DrawString(textX, textY, "LEFT", textHeight, self.font, post)
 					textX = textX + DrawStringWidth(textHeight, self.font, post)
 				end
@@ -372,9 +370,9 @@ function EditClass:Draw(viewPort, noTooltip)
 	elseif self.sel and self.sel ~= self.caret then
 		local left = m_min(self.caret, self.sel)
 		local right = m_max(self.caret, self.sel)
-		local pre = self.textCol .. self.buf:sub(1, left - 1)
-		local sel = self.selCol .. StripEscapes(self.buf:sub(left, right - 1))
-		local post = self.textCol .. self.buf:sub(right)
+		local pre = self.textCol .. utf8.sub(self.buf, 1, left - 1)
+		local sel = self.selCol .. StripEscapes(utf8.sub(self.buf, left, right - 1))
+		local post = self.textCol .. utf8.sub(self.buf, right)
 		if self.protected then
 			DrawString(textX, textY, "LEFT", textHeight, self.font, self.textCol .. string.rep(protected_replace, #pre-#self.textCol))
 		else
@@ -400,8 +398,8 @@ function EditClass:Draw(viewPort, noTooltip)
 			DrawImage(nil, caretX, textY, 1, textHeight)
 		end
 	else
-		local pre = self.textCol .. self.buf:sub(1, self.caret - 1)
-		local post = self.buf:sub(self.caret)
+		local pre = self.textCol .. utf8.sub(self.buf, 1, self.caret - 1)
+		local post = utf8.sub(self.buf, self.caret)
 		if self.protected then
 			DrawString(textX, textY, "LEFT", textHeight, self.font, self.textCol .. string.rep(protected_replace, #pre-#self.textCol))
 		else
@@ -448,37 +446,37 @@ function EditClass:OnKeyDown(key, doubleClick)
 		end
 		if doubleClick then
 			if self.lineHeight then
-				if self.buf:sub(self.caret - 1, self.caret):match("^%C\n$") then
+				if utf8.match(utf8.sub(self.buf, self.caret - 1, self.caret), "^%C\n$") then
 					self.caret = self.caret - 1
 				end
-				while self.buf:sub(self.caret - 1, self.caret):match("[^\n][ \t]") do
+				while utf8.match(utf8.sub(self.buf, self.caret - 1, self.caret), "[^\n][ \t]") do
 					self.caret = self.caret - 1
 				end
-				local caretChar = self.buf:sub(self.caret, self.caret)
-				if caretChar:match("%w") then
+				local caretChar = utf8.sub(self.buf, self.caret, self.caret)
+				if utf8.match(caretChar, "%w") then
 					self.sel = self.caret
-					while self.buf:sub(self.sel - 1, self.sel - 1):match("%w") do
+					while utf8.match(utf8.sub(self.buf, self.sel - 1, self.sel - 1), "%w") do
 						self.sel = self.sel - 1
 					end
-					while self.buf:sub(self.caret, self.caret):match("%w") do
+					while utf8.match(utf8.sub(self.buf, self.caret, self.caret), "%w") do
 						self.caret = self.caret + 1
 					end
 				elseif caretChar:match("%S") then
 					self.sel = self.caret
-					while self.buf:sub(self.sel - 1, self.sel - 1) == caretChar do
+					while utf8.sub(self.buf, self.sel - 1, self.sel - 1) == caretChar do
 						self.sel = self.sel - 1
 					end
-					while self.buf:sub(self.caret, self.caret) == caretChar do
+					while utf8.sub(self.buf, self.caret, self.caret) == caretChar do
 						self.caret = self.caret + 1
 					end
 				end
 			else
 				self.sel = 1
-				self.caret = #self.buf + 1
+				self.caret = utf8.len(self.buf) + 1
 			end
 			self.lastUndoState.caret = self.caret
 			self:ScrollCaretIntoView()
-		elseif ctrl and string.match(self.buf, '[a-z]*://[^ >,;]*') then
+		elseif ctrl and utf8.match(self.buf, '[a-z]*://[^ >,;]*') then
 			OpenURL(self.buf)
 		else
 			self.drag = true
@@ -514,7 +512,7 @@ function EditClass:OnKeyDown(key, doubleClick)
 		if self.sel and self.sel ~= self.caret then
 			local left = m_min(self.caret, self.sel)
 			local right = m_max(self.caret, self.sel)
-			Copy(self.buf:sub(left, right - 1))
+			Copy(utf8.sub(self.buf, left, right - 1))
 			if key == "x" then
 				self:ReplaceSel("")
 			end
@@ -541,12 +539,12 @@ function EditClass:OnKeyDown(key, doubleClick)
 		if self.caret > 1 then
 			if ctrl then
 			-- Skip leading space, then jump word
-				while self.buf:sub(self.caret-1, self.caret-1):match("[%s%p]") do
+				while utf8.match(utf8.sub(self.buf, self.caret-1, self.caret-1), "[%s%p]") do
 					if self.caret > 1 then
 						self.caret = self.caret - 1
 					end
 				end
-				while self.buf:sub(self.caret-1, self.caret-1):match("%w") do
+				while utf8.match(utf8.sub(self.buf, self.caret-1, self.caret-1), "%w") do
 					if self.caret > 1 then
 						self.caret = self.caret - 1
 					end
@@ -560,16 +558,16 @@ function EditClass:OnKeyDown(key, doubleClick)
 		end
 	elseif key == "RIGHT" then
 		self.sel = shift and (self.sel or self.caret) or nil
-		if self.caret <= #self.buf then
+		if self.caret <= utf8.len(self.buf) then
 			if ctrl then
 			-- Jump word, then skip trailing space, 
-				while self.buf:sub(self.caret, self.caret):match("%w") do
-					if self.caret <= #self.buf then
+				while utf8.match(utf8.sub(self.buf, self.caret, self.caret), "%w") do
+					if self.caret <= utf8.len(self.buf) then
 						self.caret = self.caret + 1
 					end
 				end
-				while self.buf:sub(self.caret, self.caret):match("[%s%p]") do
-					if self.caret <= #self.buf then
+				while utf8.match(utf8.sub(self.buf, self.caret, self.caret), "[%s%p]") do
+					if self.caret <= utf8.len(self.buf) then
 						self.caret = self.caret + 1
 					end
 				end
@@ -589,7 +587,7 @@ function EditClass:OnKeyDown(key, doubleClick)
 	elseif key == "HOME" then
 		self.sel = shift and (self.sel or self.caret) or nil
 		if self.lineHeight and not ctrl then
-			self.caret = self.caret - #lastLine(self.buf:sub(1, self.caret - 1))
+			self.caret = self.caret - utf8.len(lastLine(utf8.sub(self.buf, 1, self.caret - 1)))
 		else
 			self.caret = 1
 		end
@@ -599,9 +597,9 @@ function EditClass:OnKeyDown(key, doubleClick)
 	elseif key == "END" then
 		self.sel = shift and (self.sel or self.caret) or nil
 		if self.lineHeight and not ctrl then
-			self.caret = self.caret + #self.buf:sub(self.caret, -1):match("[^\n]*")
+			self.caret = self.caret + utf8.len(utf8.match(utf8.sub(self.buf, self.caret, -1), "[^\n]*"))
 		else
-			self.caret = #self.buf + 1			
+			self.caret = utf8.len(self.buf) + 1		
 		end
 		self.lastUndoState.caret = self.caret
 		self:ScrollCaretIntoView()
@@ -620,16 +618,16 @@ function EditClass:OnKeyDown(key, doubleClick)
 		elseif self.caret > 1 then
 			local len = 1
 			if IsKeyDown("CTRL") then
-				while self.caret - len > 1 and self.buf:sub(self.caret - len, self.caret - len):match("%s") and not self.buf:sub(self.caret - len - 1, self.caret - len - 1):match("\n") do
+				while self.caret - len > 1 and utf8.match(utf8.len(self.buf, self.caret - len, self.caret - len), "%s") and not utf8.match(utf8.sub(self.buf, self.caret - len - 1, self.caret - len - 1), "\n") do
 					len = len + 1
 				end
-				if self.buf:sub(self.caret - len, self.caret - len):match("%w") then
-					while self.caret - len > 1 and self.buf:sub(self.caret - len - 1, self.caret - len - 1):match("%w") do
+				if utf8.match(utf8.sub(self.buf, self.caret - len, self.caret - len), "%w") then
+					while self.caret - len > 1 and utf8.match(utf8.sub(self.buf, self.caret - len - 1, self.caret - len - 1), "%w") do
 						len = len + 1
 					end
 				end
 			end
-			self.buf = self.buf:sub(1, self.caret - 1 - len) .. self.buf:sub(self.caret)
+			self.buf = utf8.sub(self.buf, 1, self.caret - 1 - len) .. utf8.sub(self.buf, self.caret)
 			self.caret = self.caret - len
 			self.sel = nil
 			self:ScrollCaretIntoView()
@@ -642,19 +640,19 @@ function EditClass:OnKeyDown(key, doubleClick)
 	elseif key == "DELETE" then
 		if self.sel and self.sel ~= self.caret then
 			self:ReplaceSel("")
-		elseif self.caret <= #self.buf then
+		elseif self.caret <= utf8.len(self.buf) then
 			local len = 1
 			if IsKeyDown("CTRL") then
-				while self.caret + len <= #self.buf and self.buf:sub(self.caret + len - 1, self.caret + len - 1):match("%s") and not self.buf:sub(self.caret + len, self.caret + len):match("\n") do
+				while self.caret + len <= utf8.len(self.buf) and utf8.match(utf8.sub(self.buf, self.caret + len - 1, self.caret + len - 1), "%s") and not utf8.match(utf8.sub(self.buf, self.caret + len, self.caret + len), "\n") do
 					len = len + 1
 				end
-				if self.buf:sub(self.caret + len - 1, self.caret + len - 1):match("%w") then
-					while self.caret + len <= #self.buf and self.buf:sub(self.caret + len, self.caret + len):match("%w") do
+				if utf8.match(utf8.sub(self.buf, self.caret + len - 1, self.caret + len - 1), "%w") then
+					while self.caret + len <= utf8.len(self.buf) and utf8.match(utf8.sub(self.buf, self.caret + len, self.caret + len), "%w") do
 						len = len + 1
 					end
 				end
 			end
-			self.buf = self.buf:sub(1, self.caret - 1) .. self.buf:sub(self.caret + len)
+			self.buf = utf8.sub(self.buf, 1, self.caret - 1) .. utf8.sub(self.buf, self.caret + len)
 			self.sel = nil
 			self.blinkStart = GetTime()
 			if self.changeFunc then
