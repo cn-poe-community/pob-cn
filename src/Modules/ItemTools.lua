@@ -133,31 +133,7 @@ end
 ---@param text string
 ---@return string
 function itemLib.sanitiseItemText(text)
-	-- Something something unicode support something grumble
-	local replacements = {
-		{ "^%s+", "" }, { "%s+$", "" }, { "\r\n", "\n" }, { "%b<>", "" },
-		-- UTF-8
-		{ "\226\128\144", "-" }, -- U+2010 HYPHEN
-		{ "\226\128\145", "-" }, -- U+2011 NON-BREAKING HYPHEN
-		{ "\226\128\146", "-" }, -- U+2012 FIGURE DASH
-		{ "\226\128\147", "-" }, -- U+2013 EN DASH
-		{ "\226\128\148", "-" }, -- U+2014 EM DASH
-		{ "\226\128\149", "-" }, -- U+2015 HORIZONTAL BAR
-		{ "\226\136\146", "-" }, -- U+2212 MINUS SIGN
-		{ "\195\164", "a" }, -- U+00E4 LATIN SMALL LETTER A WITH DIAERESIS
-		{ "\195\182", "o" }, -- U+00F6 LATIN SMALL LETTER O WITH DIAERESIS
-		-- single-byte: Windows-1252 and similar
-		{ "\150", "-" }, -- U+2013 EN DASH
-		{ "\151", "-" }, -- U+2014 EM DASH
-		{ "\228", "a" }, -- U+00E4 LATIN SMALL LETTER A WITH DIAERESIS
-		{ "\246", "o" }, -- U+00F6 LATIN SMALL LETTER O WITH DIAERESIS
-		-- unsupported
-		{ "[\128-\255]", "?" },
-	}
-	for _, r in ipairs(replacements) do
-		text = text:gsub(r[1], r[2])
-	end
-	return text
+	return text:gsub("^%s+",""):gsub("%s+$",""):gsub("\r\n","\n"):gsub("%b<>",""):gsub("^%s*(.-)%s*$", "%1")
 end
 
 function itemLib.formatModLine(modLine, dbMode)
